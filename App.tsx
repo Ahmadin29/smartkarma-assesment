@@ -1,20 +1,30 @@
+import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import MainNavigator from './navigator';
+import useCachedResources from './hooks/useCachedResources';
+import Colors from './constants/colors';
+import { Provider } from 'react-redux';
+import store from './redux/store';
+import { useEffect } from 'react';
 
 export default function App() {
-  return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
-  );
-}
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+  const loadingResources = useCachedResources()
+
+  if (loadingResources) {
+    return (
+      <SafeAreaProvider>
+        <StatusBar translucent={false} backgroundColor={Colors.white} />
+        <Provider store={store} >
+          <NavigationContainer>
+            <MainNavigator/>
+          </NavigationContainer>
+        </Provider>
+      </SafeAreaProvider>
+    );
+  }else{
+    return null
+  }
+}
