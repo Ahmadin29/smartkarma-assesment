@@ -1,20 +1,21 @@
 import { useNavigation } from "@react-navigation/native";
-import { AddCircle, Buildings, CloseCircle, FavoriteChart, TickCircle } from "iconsax-react-native";
+import { AddCircle, ArrowCircleDown, ArrowCircleDown2, ArrowCircleUp2, Buildings, CloseCircle, FavoriteChart, Sort, TickCircle } from "iconsax-react-native";
 import moment from "moment";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, TouchableOpacity, View } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 import Colors from "../../constants/colors";
 import layouts from "../../constants/layouts";
-import { remove } from "../../redux/actions/list";
+import { ordering, remove } from "../../redux/actions/list";
+import { addWatchlist } from "../../redux/actions/watchlist";
 import Button from "../Button";
 import Text from "../Text";
+import BottomSheet from 'react-native-raw-bottom-sheet'
 
 export default function WatchlistWidget() {
 
     const list = useSelector((state:any) => state.list.value);
-
-    const [watchlist,setWatchlist] = useState<any>([])
+    const watchlist = useSelector((state:any) => state.watchlist.value);
 
     const navigation = useNavigation();
 
@@ -25,8 +26,6 @@ export default function WatchlistWidget() {
     },[list])
 
     const stream = ()=>{
-
-        setWatchlist([])
 
         const socket = new WebSocket('wss://ws.twelvedata.com/v1/quotes/price?apikey=579f4b297a6a4a53b6ae58c3339e916e')
 
@@ -49,15 +48,16 @@ export default function WatchlistWidget() {
 
             const data = JSON.parse(e.data);
 
-            console.log(data);
+            // console.log(e.data);
             
-
             if (data.event == 'price') {
-                const newdata = [...watchlist,data]
-
-                setWatchlist(newdata);
+                console.log('update availble',data.symbol,data.price,data.timestamp);
+                
+                dispatch(addWatchlist(data))
+                
             }
         }
+
     }
 
     const ListEmpty = ()=>{
@@ -91,7 +91,14 @@ export default function WatchlistWidget() {
 
     const renderList = ()=>{
         return(
-            watchlist.map((v:any,i:any)=>{
+            list.map((v:any,i:any)=>{
+
+                const prices = watchlist.filter((val:any)=>{
+                    return val.symbol == v.symbol
+                })
+
+                const price = prices && prices[prices.length - 1];
+
                 return(
                     <TouchableOpacity key={i} style={{
                         paddingVertical:10,
@@ -141,17 +148,134 @@ export default function WatchlistWidget() {
                                         borderRadius:10,
                                         marginRight:10,
                                     }} >
-                                        <Text color="text" size={10} >{v.symbol}:{v.exchange}</Text>
+                                        <Text color="text" size={10} >{v.symbol}</Text>
                                     </View>
                                 </View>
-                                <Text size={18} weight="semi" >{v.price}</Text>
-                                <Text size={10} color="textSecondary" >{moment.unix(v.timestamp).format('DD/MM/YYYY HH:mm:ss')}</Text>
+                                <Text size={18} weight="semi" >{price ? `${price.price} USD`: 'Loading data'}</Text>
+                                <Text size={10} color="textSecondary" >{price ? moment.unix(price.timestamp).format('DD/MM/YYYY HH:mm:ss') : '-'}</Text>
                             </View>
                         </View>
                         <CloseCircle variant="Bold" size={24} color={Colors.grey1} />
                     </TouchableOpacity>
                 )
             })
+        )
+    }
+
+    let sheetRef = useRef<any>(null)
+
+    const sortPrice = (order:any)=>{
+        const unique:any = []
+
+        list.map((v:any)=>{
+            const data = watchlist.filter((val:any)=>{
+                return val.symbol == v.symbol;
+            })
+
+            const price = data && data[data.length - 1];
+
+            unique.push(price)
+        })
+
+        const sortedPrice = unique.sort((a:any,b:any)=>{
+            return order == 'desc' ? a.price > b.price ? 1 : -1 : a.price < b.price ? 1 : -1
+        })
+
+        const sortedList:any = []
+
+        sortedPrice.map((v:any)=>{
+            const selected = list.find((data:any)=>{
+                return data.symbol == v.symbol
+            })
+
+            sortedList.push(selected)
+        })
+
+        dispatch(ordering(sortedList))
+    }
+
+    const sortName = (order:any)=>{
+        const data = [...list];
+
+        const sorted = data.sort((a:any,b:any)=>{
+            return order == 'asc' ? a.symbol < b.symbol ? 1 : -1 : a.symbol > b.symbol ? 1 : -1
+        })
+
+        dispatch(ordering(sorted))
+    }
+
+    const sortSheet = ()=>{
+        return(
+            <BottomSheet
+                ref={sheetRef}
+                height={250}
+            >
+                <View style={{
+                    padding:15
+                }} >
+                    <Text weight="semi" size={20} >Sort list</Text>
+                    <View style={{
+                        flexDirection:"row",
+                        justifyContent:"space-between",
+                        paddingVertical:10,
+                        alignItems:"center",
+                        borderBottomWidth:1,
+                        borderBottomColor:Colors.grey1
+                    }} >
+                        <Text weight="semi" >Stock Name</Text>
+                        <View style={{
+                            flexDirection:"row"
+                        }} >
+                            <TouchableOpacity style={{
+                                padding:5
+                            }} onPress={()=>{
+                                sortName('desc')
+                            }} >
+                                <ArrowCircleDown2 color={Colors.textSecondary} />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={{
+                                padding:5
+                            }} onPress={()=>{
+                                sortName('asc')
+                            }}>
+                                <ArrowCircleUp2 color={Colors.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                    <View style={{
+                        flexDirection:"row",
+                        justifyContent:"space-between",
+                        alignItems:"center",
+                        paddingVertical:10,
+                    }} >
+                        <Text weight="semi" >Stock Price</Text>
+                        <View style={{
+                            flexDirection:"row"
+                        }} >
+                            <TouchableOpacity style={{
+                                padding:5
+                            }} onPress={()=>{
+                                sortPrice('desc')
+                            }} >
+                                <ArrowCircleDown2 color={Colors.textSecondary} />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={{
+                                padding:5
+                            }} onPress={()=>{
+                                sortPrice('asc')
+                            }} >
+                                <ArrowCircleUp2 color={Colors.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                    <Button
+                        label="Close"
+                        onPress={()=>{
+                            sheetRef.current.close()
+                        }}
+                    />
+                </View>
+            </BottomSheet>
         )
     }
 
@@ -168,14 +292,16 @@ export default function WatchlistWidget() {
                 <Text weight="semi" size={18} >Watchlist</Text>
                 <TouchableOpacity style={{
                     padding:5,
+                    marginRight:-5
                 }} onPress={()=>{
-                    navigation.navigate('Search' as never)
+                    sheetRef.current.open()
                 }}>
-                    <AddCircle color={Colors.textSecondary} size={25} variant="Bold" />
+                    <Sort color={Colors.textSecondary} size={25} variant="Bold" />
                 </TouchableOpacity>
             </View>
             {list.length < 1 && ListEmpty()}
             {list.length > 0 && renderList()}
+            {sortSheet()}
         </View>
     )
 }

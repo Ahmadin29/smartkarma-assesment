@@ -11,6 +11,9 @@ export const listSlice = createSlice({
 
             state.value = newdata;
         },
+        ordering:(state,action)=>{
+            state.value = action.payload;
+        },
         remove:(state,action)=>{
             const updated = state.value.filter((v:any)=>{
                 return v.symbol+":"+v.exchange != action.payload.symbol+":"+action.payload.exchange
@@ -21,6 +24,6 @@ export const listSlice = createSlice({
     }
 })
 
-export const { add,remove } = listSlice.actions;
+export const { add,remove,ordering } = listSlice.actions;
 
 export default listSlice.reducer
